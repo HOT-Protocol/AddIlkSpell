@@ -145,7 +145,7 @@ contract Flipper is LibNote {
 
         bids[id].bid = bid;
         bids[id].lot = lot;
-        bids[id].guy = msg.sender;  // configurable??
+        bids[id].guy = msg.sender;  
         bids[id].end = add(uint48(now), tau);
         bids[id].usr = usr;
         bids[id].gal = gal;
@@ -155,19 +155,20 @@ contract Flipper is LibNote {
 
         emit Kick(id, lot, bid, tab, usr, gal);
     }
+
     function tick(uint256 id) external note {
         require(bids[id].guy != address(0), "Flipper/guy-not-set");
         require(bids[id].end < now, "Flipper/not-finished");
         require(bids[id].tic == 0, "Flipper/bid-already-placed");
         bids[id].end = add(uint48(now), tau);
     }
+    
     function tend(uint256 id, uint256 lot, uint256 bid) external note {
         require(bids[id].guy != address(0), "Flipper/guy-not-set");
         require(bids[id].tic > now || bids[id].tic == 0, "Flipper/already-finished-tic");
         require(bids[id].end > now, "Flipper/already-finished-end");
 
         require(lot == bids[id].lot, "Flipper/lot-not-matching");
-//        require(bid <= bids[id].tab, "Flipper/higher-than-tab");
         require(bid >  bids[id].bid, "Flipper/bid-not-higher");
         require(mul(bid, ONE) >= mul(beg, bids[id].bid) || bid == bids[id].tab, "Flipper/insufficient-increase");
 
@@ -175,7 +176,6 @@ contract Flipper is LibNote {
             vat.move(msg.sender, bids[id].guy, bids[id].bid);
             bids[id].guy = msg.sender;
         }
-//        vat.move(msg.sender, bids[id].gal, bid - bids[id].bid);
         if(bids[id].bid <= bids[id].tab){
             if(bid <= bids[id].tab){
                 vat.move(msg.sender, bids[id].gal, bid - bids[id].bid);
@@ -189,37 +189,6 @@ contract Flipper is LibNote {
         bids[id].bid = bid;
         bids[id].tic = add(uint48(now), ttl);
     }
-
-    //    function tend(uint256 id, uint256 lot, uint256 bid) external note {
-    //     require(bids[id].guy != address(0), "Flipper/guy-not-set");
-    //     require(bids[id].tic > now || bids[id].tic == 0, "Flipper/already-finished-tic");
-    //     require(bids[id].end > now, "Flipper/already-finished-end");
-
-    //     require(lot == bids[id].lot, "Flipper/lot-not-matching");
-    //     require(bid >  bids[id].bid, "Flipper/bid-not-higher");
-    //     require(mul(bid, ONE) >= mul(beg, bids[id].bid) || bid == bids[id].tab, "Flipper/insufficient-increase");
-
-    //     if (msg.sender != bids[id].guy) {
-    //         vat.move(msg.sender, bids[id].guy, bids[id].bid);
-    //         bids[id].guy = msg.sender;
-    //     }
-    //     if(bids[id].bid <= bids[id].tab){
-    //         if(bid <= bids[id].tab){
-    //             vat.move(msg.sender, bids[id].gal, sub(bid, bids[id].bid));
-    //         }else {
-    //             vat.move(msg.sender, bids[id].gal, sub(bids[id].tab, bids[id].bid));
-    //             uint256 num = sub(bid, bids[id].tab);
-    //             daiById[id] = addUint256(daiById[id], num);
-    //             vat.move(msg.sender, address(this), num);
-    //         }
-    //     }else {
-    //         uint256 num = sub(bid, bids[id].bid);
-    //         daiById[id] = addUint256(daiById[id], num);
-    //         vat.move(msg.sender, address(this), num);
-    //     }
-    //     bids[id].bid = bid;
-    //     bids[id].tic = add(uint48(now), ttl);
-    // }
 
     function deal(uint256 id) external note {
         require(bids[id].tic != 0 && (bids[id].tic < now || bids[id].end < now), "Flipper/not-finished");
