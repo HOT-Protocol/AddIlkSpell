@@ -193,11 +193,7 @@ contract DssAddIlkSpell is Initializable,Ownable{
         address FLIP_IMPL;
         address PIP_IMPL;
     }
-    //goerli
-    //JOIN_IMPL = 0x6c99291bD524fD12e5c2845802Ab772a70Af0F10
-    //FLIP_IMPL = 0x75cb9268c803be4dBC4B7EbB54b6e53e82dd31Af
-    //PIP_IMPL = 0x9c694F6B55257Ea9d3288fE9eaa2B927c7dF8166
-  
+
     struct ValueMsg{
         uint256 line;
         uint256 dust;
@@ -370,7 +366,7 @@ contract DssAddIlkSpell is Initializable,Ownable{
         return  number;
     }
 
-    function updateValue(string[] memory strs, uint256[] calldata vals) onlyOwner() external {
+    function updateValue(string[] memory strs, uint256[] calldata vals) onlyExecutor() external {
         require(strs.length == vals.length, "Parameter array length does not match");
         bytes32 hash;
         for (uint256 i = 0; i< strs.length; i++){
