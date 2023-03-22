@@ -224,12 +224,6 @@ contract DSValuePorxy is basePorxy{
     }
 }
 
-contract DssAddIlkSpellPorxy is basePorxy{
-       constructor(address impl) {
-        _setAdmin(msg.sender);
-        _setLogic(impl);
-    }
-}
 
 
 
