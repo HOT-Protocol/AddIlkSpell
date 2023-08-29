@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pragma solidity >=0.4.23;
+pragma solidity 0.5.15;
 interface DSAuthority {
     function canCall(
         address src, address dst, bytes4 sig

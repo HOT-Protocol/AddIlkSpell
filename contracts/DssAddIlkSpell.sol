@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./SpellLib.sol";
+import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
+import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+
 
 interface SpotterLike {
     function poke(bytes32) external;
@@ -13,9 +16,9 @@ interface DSValueAbstract {
 interface IlkRegistryAbstract {
     function add(address) external;
 }
-interface IProxy {
-    function changeAdmin(address newAdmin) external returns(bool);
-    function upgrad(address newLogic) external returns(bool);
+interface IUpgradeableBeacon {
+    function transferOwnership(address newOwner) external;
+    function upgradeTo(address newImplementation) external;
 }
 interface DSTokenAbstract {
     function decimals() external view returns (uint256);
@@ -156,7 +159,7 @@ contract DssSpell {
     }
 }
 
-contract DssAddIlkSpell is Initializable,Ownable{
+contract DssAddIlkSpell is OwnableUpgradeable{
     address public executor;
     AddressMsg public addressMsg;
     ValueMsg public valueMsg;
@@ -178,7 +181,7 @@ contract DssAddIlkSpell is Initializable,Ownable{
         address    pip;
         address    spell;
     }
-  
+
     struct AddressMsg{
         address MCD_PAUSE;
         address MCD_VAT;
@@ -189,9 +192,9 @@ contract DssAddIlkSpell is Initializable,Ownable{
         address FLIPPER_MOM;
         address ILK_REGISTRY;
         address ILK_DEPLOYER;
-        address JOIN_IMPL;
-        address FLIP_IMPL;
-        address PIP_IMPL;
+        address JOIN_BEACON;
+        address FLIP_BEACON;
+        address PIP_BEACON;
     }
 
     struct ValueMsg{
@@ -205,30 +208,26 @@ contract DssAddIlkSpell is Initializable,Ownable{
         uint256 tau;
         uint256 mat;
     }
-    
+
     modifier onlyExecutor() {
         require(msg.sender == executor, "PledgeContract: caller is not the admin");
         _;
     }
 
-    function init(
+    function initialize(
         address _executor,
-        address[12] calldata addrs, 
+        address[12] calldata addrs,
         uint[9] calldata vals
-    )  external 
-       initializer
-    {
+    )  external initializer() {
         __Ownable_init_unchained();
         __DssAddIlkSpell_init_unchained(_executor, addrs, vals);
     }
 
     function __DssAddIlkSpell_init_unchained(
         address _executor,
-        address[12] calldata addrs, 
+        address[12] calldata addrs,
         uint[9] calldata vals
-    ) internal 
-      initializer
-    {
+    ) internal onlyInitializing{
         executor = _executor;
         addressMsg.MCD_PAUSE = addrs[0];
         addressMsg.MCD_VAT = addrs[1];
@@ -239,9 +238,9 @@ contract DssAddIlkSpell is Initializable,Ownable{
         addressMsg.FLIPPER_MOM = addrs[6];
         addressMsg.ILK_REGISTRY = addrs[7];
         addressMsg.ILK_DEPLOYER = addrs[8];//address(new IlkDeployer());
-        addressMsg.JOIN_IMPL = addrs[9];
-        addressMsg.FLIP_IMPL = addrs[10];
-        addressMsg.PIP_IMPL = addrs[11];
+        addressMsg.JOIN_BEACON = addrs[9];
+        addressMsg.FLIP_BEACON = addrs[10];
+        addressMsg.PIP_BEACON = addrs[11];
         valueMsg.line = vals[0];
         valueMsg.dust = vals[1];
         valueMsg.dunk = vals[2];
@@ -250,19 +249,19 @@ contract DssAddIlkSpell is Initializable,Ownable{
         valueMsg.beg = vals[5];
         valueMsg.ttl = vals[6];
         valueMsg.tau = vals[7];
-        valueMsg.mat = vals[8];        
+        valueMsg.mat = vals[8];
     }
-    
+
     function updateExecutor(address _executor) external onlyOwner{
         executor = _executor;
         emit UpdateExecutor(_executor);
     }
-    
+
 
     function addIlkSpell(bytes32 _ilk, address _token, uint256 _price) onlyExecutor() external {
         _addIlkSpell(_ilk, _token, _price);
     }
-           
+
     function schedules(uint256[] calldata _nums) external {
         for (uint256 i = 0; i< _nums.length; i++){
             AddIlkSpellMsg memory _addIlkSpellMsg = addIlkSpellMsg[_nums[i]];
@@ -270,7 +269,7 @@ contract DssAddIlkSpell is Initializable,Ownable{
             emit Schedules(_nums[i]);
         }
     }
-    
+
     function casts(uint256[] calldata _nums) external {
         for (uint256 i = 0; i< _nums.length; i++){
             AddIlkSpellMsg memory _addIlkSpellMsg = addIlkSpellMsg[_nums[i]];
@@ -278,7 +277,7 @@ contract DssAddIlkSpell is Initializable,Ownable{
             emit Casts(_nums[i]);
         }
     }
-       
+
     function scheduleAndCast(uint256[] calldata _nums) external {
         AddIlkSpellMsg memory _addIlkSpellMsg;
         for (uint256 i = 0; i< _nums.length; i++){
@@ -289,15 +288,15 @@ contract DssAddIlkSpell is Initializable,Ownable{
             emit Casts(_nums[i]);
         }
     }
-   
+
     function addIlkSpell(bytes32[] calldata _ilks, address[] calldata _tokens, uint256[] calldata _prices) onlyExecutor() external {
         require(_ilks.length == _tokens.length && _tokens.length == _prices.length, "Parameter array length does not match");
         for (uint256 i = 0; i< _tokens.length; i++){
             _addIlkSpell(_ilks[i], _tokens[i], _prices[i]);
         }
     }
-   
-    function pokes(uint256[] calldata _nums, address[] calldata _pips, uint256[] calldata _vals) onlyOwner() external{ 
+
+    function pokes(uint256[] calldata _nums, address[] calldata _pips, uint256[] calldata _vals) onlyOwner() external{
         require(_nums.length == _vals.length && _pips.length == _vals.length, "Parameter array length does not match");
         for (uint256 i = 0; i< _nums.length; i++){
             AddIlkSpellMsg memory _addIlkSpellMsg = addIlkSpellMsg[_nums[i]];
@@ -308,29 +307,33 @@ contract DssAddIlkSpell is Initializable,Ownable{
         }
     }
 
-    function updateProxyAdmin(address[] calldata _targetAddrs, address[] calldata _addrs) onlyOwner() external{
-        require(_targetAddrs.length == _addrs.length, "Parameter array length does not match");
-        for (uint256 i = 0; i< _targetAddrs.length; i++){
-            IProxy proxy = IProxy(_targetAddrs[i]);
-            proxy.changeAdmin(_addrs[i]);
+    function updateProxyAdmin(string memory _type, address _newAdmin) onlyOwner() external{
+        if(keccak256(abi.encodePacked(_type)) == keccak256(abi.encodePacked('JOIN_BEACON'))){
+            IUpgradeableBeacon(addressMsg.JOIN_BEACON).transferOwnership(_newAdmin);
+        }else if(keccak256(abi.encodePacked(_type)) == keccak256(abi.encodePacked('FLIP_BEACON'))){
+            IUpgradeableBeacon(addressMsg.FLIP_BEACON).transferOwnership(_newAdmin);
+        }else if(keccak256(abi.encodePacked(_type)) == keccak256(abi.encodePacked('PIP_BEACON'))){
+            IUpgradeableBeacon(addressMsg.PIP_BEACON).transferOwnership(_newAdmin);
+        }else {
+            revert();
         }
     }
-      
-    function updateProxyUpgrad(address[] calldata _targetAddrs, address[] calldata _addrs) onlyOwner() external{
-        require(_targetAddrs.length == _addrs.length, "Parameter array length does not match");
-        for (uint256 i = 0; i< _targetAddrs.length; i++){
-            IProxy proxy = IProxy(_targetAddrs[i]);
-            proxy.upgrad(_addrs[i]);
+
+    function updateProxyUpgrad(string memory _type, address _impl) onlyOwner() external{
+        if(keccak256(abi.encodePacked(_type)) == keccak256(abi.encodePacked('JOIN_BEACON'))){
+            IUpgradeableBeacon(addressMsg.JOIN_BEACON).upgradeTo(_impl);
+        }else if(keccak256(abi.encodePacked(_type)) == keccak256(abi.encodePacked('FLIP_BEACON'))){
+            IUpgradeableBeacon(addressMsg.FLIP_BEACON).upgradeTo(_impl);
+        }else if(keccak256(abi.encodePacked(_type)) == keccak256(abi.encodePacked('PIP_BEACON'))){
+            IUpgradeableBeacon(addressMsg.PIP_BEACON).upgradeTo(_impl);
+        }else {
+            revert();
         }
     }
-      
-    function excContract(address[] calldata _targetAddrs, bytes[] calldata _datas) onlyOwner() external{
-        require(_targetAddrs.length == _datas.length, "Parameter array length does not match");
-        for (uint256 i = 0; i< _targetAddrs.length; i++){
-            require(bytesToUint(_datas[i]) != 2401778032 && bytesToUint(_datas[i]) != 822583150, "Calls to methods of proxy contracts are not allowed");
-            (bool result, ) = _targetAddrs[i].call(_datas[i]);
-            require(result, "The method call failed");
-        }
+
+    function excContract(address _targetAddr, bytes calldata _data) onlyOwner() external{
+        (bool result, ) = _targetAddr.call(_data);
+        require(result, "The method call failed");
     }
 
     function _addIlkSpell(bytes32 _ilk, address _token, uint256 _price) internal {
@@ -340,30 +343,21 @@ contract DssAddIlkSpell is Initializable,Ownable{
         AddIlkSpellMsg storage _addIlkSpellMsg = addIlkSpellMsg[_num];
         _addIlkSpellMsg.ilk = _ilk;
         _addIlkSpellMsg.token = _token;
-        _addIlkSpellMsg.join = address(new JoinPorxy(addressMsg.JOIN_IMPL));
-        _addIlkSpellMsg.flip = address(new FlipPorxy(addressMsg.FLIP_IMPL));
-        _addIlkSpellMsg.pip = address(new DSValuePorxy(addressMsg.PIP_IMPL));
+        _addIlkSpellMsg.join = address(new BeaconProxy(addressMsg.JOIN_BEACON,new bytes(0x00)));
+        _addIlkSpellMsg.flip = address(new BeaconProxy(addressMsg.FLIP_BEACON,new bytes(0x00)));
+        _addIlkSpellMsg.pip = address(new BeaconProxy(addressMsg.PIP_BEACON,new bytes(0x00)));
         FlipAbstract(_addIlkSpellMsg.flip).init(addressMsg.MCD_VAT, addressMsg.MCD_CAT, _ilk);
         FlipAbstract(_addIlkSpellMsg.flip).rely(PauseLike(addressMsg.MCD_PAUSE).proxy());
         GemJoinAbstract(_addIlkSpellMsg.join).init(addressMsg.MCD_VAT, _ilk, _token);
         DSValueAbstract(_addIlkSpellMsg.pip).init();
         DSValueAbstract(_addIlkSpellMsg.pip).poke(bytes32(_price));
-        bytes memory sig = abi.encodeWithSignature("deploy(bytes32,address[11],uint256[9])", _ilk, 
-                                [addressMsg.MCD_VAT, addressMsg.MCD_CAT, addressMsg.MCD_JUG, addressMsg.MCD_SPOT, addressMsg.MCD_END,
-                                _addIlkSpellMsg.join, _addIlkSpellMsg.pip, _addIlkSpellMsg.flip, addressMsg.ILK_REGISTRY, _token, addressMsg.FLIPPER_MOM],
-                                [valueMsg.line, valueMsg.mat, valueMsg.duty, valueMsg.chop, valueMsg.dunk, valueMsg.dust, valueMsg.beg, 
-                                valueMsg.ttl, valueMsg.tau]);
+        bytes memory sig = abi.encodeWithSignature("deploy(bytes32,address[11],uint256[9])", _ilk,
+            [addressMsg.MCD_VAT, addressMsg.MCD_CAT, addressMsg.MCD_JUG, addressMsg.MCD_SPOT, addressMsg.MCD_END,
+            _addIlkSpellMsg.join, _addIlkSpellMsg.pip, _addIlkSpellMsg.flip, addressMsg.ILK_REGISTRY, _token, addressMsg.FLIPPER_MOM],
+            [valueMsg.line, valueMsg.mat, valueMsg.duty, valueMsg.chop, valueMsg.dunk, valueMsg.dust, valueMsg.beg,
+            valueMsg.ttl, valueMsg.tau]);
         _addIlkSpellMsg.spell = address(new DssSpell(addressMsg.MCD_PAUSE, addressMsg.ILK_DEPLOYER, sig));
         emit AddIlkSpell(_num, _token, _addIlkSpellMsg.join, _addIlkSpellMsg.flip, _addIlkSpellMsg.pip, _addIlkSpellMsg.spell, _ilk);
-    }
-    
-    function bytesToUint(bytes memory _data) internal pure returns (uint256){
-        require(_data.length >= 4, "Insufficient byte length");
-        uint256 number;
-        for(uint i= 0; i<4; i++){
-            number = number + uint8(_data[i])*(2**(8*(4-(i+1))));
-        }
-        return  number;
     }
 
     function updateValue(string[] memory strs, uint256[] calldata vals) onlyExecutor() external {
@@ -417,12 +411,12 @@ contract DssAddIlkSpell is Initializable,Ownable{
                 addressMsg.ILK_REGISTRY = addrs[i];
             }else if(hash == 0xcb2a941d943e9c5f66f6bf44a553c3dc83e8be0c3790e8b99a5f62e42e5861c5){//keccak256(abi.encodePacked(ILK_DEPLOYER))
                 addressMsg.ILK_DEPLOYER = addrs[i];
-            }else if(hash == 0x5c3fc3bb988787f28c6c470a6a5a9c0f98ee5723e6cc3a66dd1cdaf7d6ced639){//keccak256(abi.encodePacked(FLIP_IMPL))
-                addressMsg.FLIP_IMPL = addrs[i];
-            }else if(hash == 0xfdaaa699ee978b54a69b5181e9e3d471e80e9b73342f761fb149ecb7da40c6fd){//keccak256(abi.encodePacked(JOIN_IMPL))
-                addressMsg.JOIN_IMPL = addrs[i];
-            }else if(hash == 0xb8c1be922aeacf00a108713200328f15180b2a32d310eda1c180377598120174){//keccak256(abi.encodePacked(PIP_IMPL))
-                addressMsg.PIP_IMPL = addrs[i];
+            }else if(hash == 0x5c3fc3bb988787f28c6c470a6a5a9c0f98ee5723e6cc3a66dd1cdaf7d6ced639){//keccak256(abi.encodePacked(FLIP_BEACON))
+                addressMsg.FLIP_BEACON = addrs[i];
+            }else if(hash == 0xfdaaa699ee978b54a69b5181e9e3d471e80e9b73342f761fb149ecb7da40c6fd){//keccak256(abi.encodePacked(FLIP_BEACON))
+                addressMsg.JOIN_BEACON = addrs[i];
+            }else if(hash == 0xb8c1be922aeacf00a108713200328f15180b2a32d310eda1c180377598120174){//keccak256(abi.encodePacked(PIP_BEACON))
+                addressMsg.PIP_BEACON = addrs[i];
             }
         }
     }

@@ -1,0 +1,38 @@
+{
+	"ILK_DEPLOYER": {
+		"contract": "IlkDeployer",
+		"address": "0x7702A8c9b49E81320114E8aB6654E4b922E2CdF3"
+	},
+	"PIP": {
+		"contract": "DSValue",
+		"address": "0xaa7B3db91E6F030EB436f09C059B1a1D4B4Ddf1F"
+	},
+	"FLIP": {
+		"contract": "Flipper",
+		"address": "0xA3Bc2075b60c7BEf4FB2cd728faF6bB1DDc99c78"
+	},
+	"JOIN": {
+		"contract": "GemJoin5",
+		"address": "0xDF1aEA133BbC358328e7660e850f4bceFca9708f"
+	},
+	"PIP_BEACON": {
+		"contract": "UpgradeableBeacon",
+		"address": "0x8Ef1b481e24cFEa7b0Eba553341E830850fF03eA"
+	},
+	"FLIP_BEACON": {
+		"contract": "UpgradeableBeacon",
+		"address": "0x69fBc427889Db205a781B08e6266495D82CE10a1"
+	},
+	"JOIN_BEACON": {
+		"contract": "UpgradeableBeacon",
+		"address": "0x7Af712Fa86284E3b01c49fd953268AB55EDd948F"
+	},
+	"DssAddIlkSpell": {
+		"contract": "DssAddIlkSpell",
+		"address": "0x41F27889e3F738dC93aAfD6aeD0e54c8296F6cb5"
+	},
+	"DssAddIlkSpellPorxy": {
+		"contract": "DssAddIlkSpellPorxy",
+		"address": "0x30cafDA6b2437d687eb0f646486f0e93e15eD7f9"
+	}
+}

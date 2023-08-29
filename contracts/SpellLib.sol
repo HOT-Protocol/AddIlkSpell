@@ -50,24 +50,24 @@ contract Proxy {
     bytes32 internal constant _IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
     //EIP1967 Admin_solt: keccak-256 hash of "eip1967.proxy.admin" subtracted by 1
     bytes32 internal constant _ADMIN_SLOT = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
-  
+
     function _setAdmin(address admin_) internal {
         StorageSlot.getAddressSlot(_ADMIN_SLOT).value = admin_;
     }
-    
+
     function _setLogic(address logic_) internal {
         StorageSlot.getAddressSlot(_IMPLEMENTATION_SLOT).value = logic_;
     }
-    
+
     function logic() public view returns (address) {
         return StorageSlot.getAddressSlot(_IMPLEMENTATION_SLOT).value;
     }
-    
+
     function admin() public view returns (address) {
        return StorageSlot.getAddressSlot(_ADMIN_SLOT).value;
     }
-    
-    
+
+
     fallback () external payable {
         assembly {
             let impl := sload(_IMPLEMENTATION_SLOT)
@@ -79,7 +79,7 @@ contract Proxy {
             default { return(0, returndatasize()) }
         }
     }
-    
+
     receive () external payable virtual {}
 }
 
@@ -87,18 +87,18 @@ contract Proxy {
 contract basePorxy is Proxy {
     event Upgraded(address indexed impl);
     event AdminChanged(address preAdmin, address newAdmin);
-    
+
     modifier onlyAmdin(){
         require(msg.sender == admin(), "LucaPorxy: Caller not admin");
         _;
     }
-    
+
     function changeAdmin(address newAdmin) external onlyAmdin returns(bool) {
         _setAdmin(newAdmin);
         emit AdminChanged(admin(), newAdmin);
         return true;
-    } 
-    
+    }
+
     function upgrad(address newLogic) external onlyAmdin returns(bool) {
         _setLogic(newLogic);
         emit Upgraded(newLogic);
@@ -203,26 +203,6 @@ contract Ownable is Initializable{
     }
 }
 
-contract JoinPorxy is basePorxy{
-       constructor(address impl) {
-        _setAdmin(msg.sender);
-        _setLogic(impl);
-    }
-}
-
-contract FlipPorxy is basePorxy{
-       constructor(address impl) {
-        _setAdmin(msg.sender);
-        _setLogic(impl);
-    }
-}
-
-contract DSValuePorxy is basePorxy{
-       constructor(address impl) {
-        _setAdmin(msg.sender);
-        _setLogic(impl);
-    }
-}
 
 
 
