@@ -12,5 +12,7 @@ param/
 log/
 .env
 .DS_Store
-
+.idea/
 *.log
+.DS_Store
+.DS_Store
